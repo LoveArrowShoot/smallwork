@@ -23,6 +23,7 @@ public:
 	void OnResize();
 	void UpdateScene(float dt);
 	void DrawScene();
+	void CreateSphere(float x, float y, float z);
 
 private:
 	bool InitResource();
@@ -35,6 +36,7 @@ private:
 	
 	GameObject m_WoodCrate;
 	GameObject m_Sphere;										// 球
+
 	GameObject m_Ground;										// 地面
 	GameObject m_Cylinder;									    // 圆柱
 	DirectX::BoundingSphere m_BoundingSphere;				    // 球的包围盒

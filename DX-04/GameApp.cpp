@@ -7,7 +7,7 @@ GameApp::GameApp(HINSTANCE hInstance)
 	: D3DApp(hInstance),
 	m_CameraMode(CameraMode::Free),
 	m_SkyBoxMode(SkyBoxMode::Daylight),
-	m_mode(mode::existing)
+	m_mode(mode::falling)
 {
 }
 
@@ -34,7 +34,7 @@ bool GameApp::Init()
 
 	// 初始化鼠标，键盘不需要
 	m_pMouse->SetWindow(m_hMainWnd);
-	m_pMouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
+	m_pMouse->SetMode(DirectX::Mouse::MODE_RELATIVE);
 	return true;
 }
 
@@ -92,22 +92,6 @@ void GameApp::OnResize()
 
 void GameApp::UpdateScene(float dt)
 {
-	if (m_KeyboardTracker.IsKeyPressed(Keyboard::Q))
-	{
-		mouse = 1;
-	}
-	if (m_KeyboardTracker.IsKeyPressed(Keyboard::E))
-	{
-		mouse = 0;
-	}
-	if (mouse == 0) {
-		m_pMouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
-		m_pMouse->SetVisible(true);
-	}
-	else {
-		m_pMouse->SetMode(DirectX::Mouse::MODE_RELATIVE);
-		m_pMouse->SetVisible(false);
-	}
 	// 更新鼠标事件，获取相对偏移量
 	Mouse::State mouseState = m_pMouse->GetState();
 	Mouse::State lastMouseState = m_MouseTracker.GetLastState();
@@ -154,8 +138,7 @@ void GameApp::UpdateScene(float dt)
 
 	if (m_CameraMode == CameraMode::FirstPerson || m_CameraMode == CameraMode::Free)
 	{
-		// 第一人称/自由摄像机的操作
-
+		// 第一人称/自由视野的操作
 		// 方向移动
 		if (keyState.IsKeyDown(Keyboard::W))
 		{
@@ -175,44 +158,43 @@ void GameApp::UpdateScene(float dt)
 			cam1st->Strafe(dt * -6.0f);
 		if (keyState.IsKeyDown(Keyboard::D))
 			cam1st->Strafe(dt * 6.0f);
-
-		// 将摄像机位置限制在[-8.9, 8.9]x[-8.9, 8.9]x[0.0, 8.9]的区域内
+		// 第一人称时将摄像机位置限制在[-5.0, 5.0]x[-5.0, 5.0]x[0.0, 5.0]的区域内
 		// 不允许穿地
 		XMFLOAT3 adjustedPos(0.0f,2.5f,-2.0f);
 		XMStoreFloat3(&adjustedPos, 
 		XMVectorClamp(cam1st->GetPositionXM(), XMVectorSet(-5.0f, -5.0f, -5.0f, 0.0f), XMVectorReplicate(5.0f)));
 		cam1st->SetPosition(adjustedPos);
-
-		// 仅在第一人称模式移动摄像机的同时移动圆柱,并限定圆柱移动范围
-		if (m_CameraMode == CameraMode::FirstPerson)
-			woodCrateTransform.SetPosition(adjustedPos);
+		// 以圆柱为第一人称并限制移动范围,且在第一人称下可以对球体进行操作
 		if (m_CameraMode == CameraMode::FirstPerson) {
-			m_PickedObjStr = L"无";
+			woodCrateTransform.SetPosition(adjustedPos);
 			Ray ray = Ray::ScreenToRay(*m_pCamera, (float)mouseState.x, (float)mouseState.y);
 			bool hitObject = false;
 			if (ray.Hit(m_BoundingSphere))
-			{
 				hitObject = true;
-			}
 			if (hitObject == true && keyState.IsKeyDown(Keyboard::R))
 			{
 				std::wstring wstr = L"球体被破坏(无法恢复)";
 				MessageBox(nullptr, wstr.c_str(), L"注意", 0);
 				m_mode = mode::destroyed;
 			}
-			if (m_MouseTracker.rightButton == Mouse::ButtonStateTracker::PRESSED)
-			{
-				if (m_mode == mode::falling)m_mode = mode::existing;
-				else {
-					std::wstring wstr = L"当前无物体可放置";
-					MessageBox(nullptr, wstr.c_str(), L"注意", 0);
-				}
-			}
-			if (hitObject == true && m_MouseTracker.leftButton == Mouse::ButtonStateTracker::PRESSED)
+			if (m_mode == mode::existing&&m_MouseTracker.leftButton == Mouse::ButtonStateTracker::PRESSED && hitObject == true)
 				m_mode = mode::falling;
+			if (m_mode==mode::falling&& m_MouseTracker.rightButton == Mouse::ButtonStateTracker::PRESSED) {
+				int dis = 5;
+				XMFLOAT3 Sphere_postion;
+				XMFLOAT3 camera_postion = m_pCamera->GetPosition();
+				XMFLOAT3 camera_dir = m_pCamera->GetLookAxis();
+				camera_dir.x *= dis;
+				camera_dir.y *= dis;
+				camera_dir.z *= dis;
+				Sphere_postion.x = camera_postion.x + camera_dir.x;
+				Sphere_postion.y = camera_postion.y + camera_dir.y;
+				Sphere_postion.z = camera_postion.z + camera_dir.z;
+				CreateSphere(Sphere_postion.x, Sphere_postion.y, Sphere_postion.z);
+				m_mode = mode::existing;
+			}
 		}
 	}
-
 	if (m_KeyboardTracker.IsKeyPressed(Keyboard::D7) && m_CameraMode != CameraMode::FirstPerson)
 	{
 		//mouseState.positionMode = Mouse::MODE_ABSOLUTE;
@@ -299,8 +281,7 @@ void GameApp::DrawScene()
 		m_pd2dRenderTarget->BeginDraw();
 		std::wstring text1 = L"Esc退出\n"
 			L"第一人称下W/S/A/D移动\n"
-			L"Q/E键切换鼠标相对/绝对模式\n"
-			L"第一人称鼠标绝对模式下:\n"
+			L"第一人称模式下:\n"
 			L"鼠标左键/右键可拾取/放置球体,,R键破坏球体\n"
 			L"切换天空盒: 1-白天 2-日落 3-沙漠\n"
 			L"当前天空盒: ";
@@ -361,7 +342,7 @@ bool GameApp::InitResource()
 	
 	Model model;
 	// 球体
-	model.SetMesh(m_pd3dDevice.Get(), Geometry::CreateSphere(1.0f, 30, 30));
+	/*model.SetMesh(m_pd3dDevice.Get(), Geometry::CreateSphere(1.0f, 30, 30));
 	model.modelParts[0].material.ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 	model.modelParts[0].material.diffuse = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
 	model.modelParts[0].material.specular = XMFLOAT4(0.8f, 0.8f, 0.8f, 16.0f);
@@ -370,7 +351,7 @@ bool GameApp::InitResource()
 		L"Texture\\stone.dds", 
 		nullptr, 
 		model.modelParts[0].texDiffuse.GetAddressOf()));
-	m_Sphere.SetModel(std::move(model));
+	m_Sphere.SetModel(std::move(model));*/
 	model.SetMesh(m_pd3dDevice.Get(), Geometry::CreatePlane(XMFLOAT2(10.0f, 10.0f), XMFLOAT2(5.0f,  5.0f)));
 	model.modelParts[0].material.ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 	model.modelParts[0].material.diffuse = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
@@ -446,3 +427,23 @@ bool GameApp::InitResource()
 	return true;
 }
 
+void GameApp::CreateSphere(float x, float y, float z)
+{
+	Model model;
+	// 球体
+	model.SetMesh(m_pd3dDevice.Get(), Geometry::CreateSphere(1.0f, 30, 30));
+	model.modelParts[0].material.ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
+	model.modelParts[0].material.diffuse = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
+	model.modelParts[0].material.specular = XMFLOAT4(0.8f, 0.8f, 0.8f, 16.0f);
+	model.modelParts[0].material.reflect = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
+	HR(CreateDDSTextureFromFile(m_pd3dDevice.Get(),
+		L"Texture\\stone.dds",
+		nullptr,
+		model.modelParts[0].texDiffuse.GetAddressOf()));
+	m_Sphere.SetModel(std::move(model));
+	m_Sphere.GetTransform().SetPosition(x, y, z);
+	//创建球体的包围盒
+	m_BoundingSphere.Center = m_Sphere.GetTransform().GetPosition();
+	m_BoundingSphere.Radius = 1.0f;
+	m_mode = mode::existing;
+}
