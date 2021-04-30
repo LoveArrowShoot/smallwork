@@ -21,6 +21,7 @@ public:
 		DirectX::XMMATRIX view;
 		DirectX::XMMATRIX proj;
 		DirectX::XMMATRIX worldInvTranspose;
+		//新增变量Tex
 		DirectX::XMMATRIX Tex;
 	};
 	struct PSConstantBuffer

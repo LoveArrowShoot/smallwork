@@ -129,7 +129,6 @@ void GameApp::UpdateScene(float dt)
 		m_PSConstantBuffer.spotLight[0].att = XMFLOAT3(1.0f, 0.0f, 0.0f);
 		m_PSConstantBuffer.spotLight[0].spot = 12.0f;
 		m_PSConstantBuffer.spotLight[0].range = 10000.0f;
-		
 		m_PSConstantBuffer.numDirLight = 0;
 		m_PSConstantBuffer.numPointLight = 0;
 		m_PSConstantBuffer.numSpotLight = 1;
@@ -193,6 +192,18 @@ void GameApp::UpdateScene(float dt)
 			m_CurrFrame = (m_CurrFrame + 1) % 120;
 			m_pd3dImmediateContext->PSSetShaderResources(2, 1, m_pFireAnims[m_CurrFrame].GetAddressOf());
 		}	
+		/*if (totDeltaTime > 1.0f / 60)
+		{
+			totDeltaTime -= 1.0f / 60;
+			m_CurrFrame = (m_CurrFrame + 1) % 120;
+			m_pd3dImmediateContext->PSSetShaderResources(2, 1, m_pFire.GetAddressOf());
+			// 利用多余的变量pad进行传参
+			m_PSConstantBuffer.pad = m_CurrFrame;
+			D3D11_MAPPED_SUBRESOURCE mappedData;
+			HR(m_pd3dImmediateContext->Map(m_pConstantBuffers[1].Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedData));
+			memcpy_s(mappedData.pData, sizeof(m_PSConstantBuffer), &m_PSConstantBuffer, sizeof(m_PSConstantBuffer));
+			m_pd3dImmediateContext->Unmap(m_pConstantBuffers[1].Get(), 0);
+		}*/
 	}
 	if (m_KeyboardTracker.IsKeyPressed(Keyboard::D3) && m_CurrMode != ShowMode::fire) {
 			// 播放火箱动画
